@@ -1,578 +1,483 @@
-
 <!DOCTYPE HTML>
 <html>
 
 <head>
-    <meta charset="UTF-8">
-    <title>Measurements</title>
-    <link rel="stylesheet" type="text/css" href="https://labs.sketchfab.com/experiments/styles/sketchfab.css">
+  <meta charset="UTF-8">
+  <title>Measurements</title>
+  <link rel="stylesheet" type="text/css" href="https://labs.sketchfab.com/experiments/styles/sketchfab.css">
 </head>
 
 <body>
-   
-    <div class="container">
-      
-      <div class="viewer">
-                <iframe src="" id="api-frame" allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
-            </div>
-      
-        <div class="panel">
-                        <div class="sidebar">
-              
-                <p>
-                    Haz click en dos puntos para medir la distancia entre ellos.
-                </p>
-                <table class="result">
-                    <tbody>
-                        <tr>
-                            <th>Distancia (m)</th>
-                            <td class="output"><output class="distance">-</output></td>
-                        </tr>
-  
-                    </tbody>
-                </table>
-                          
-                        <p>
-                    Realiza capturas de pantalla pulsando el botón (4096 x 4096 px).
-                </p>                
-                     <div class="controls" id="controls">
-                    <pre id="Info"></pre>                
-                    </div>
-                         
-      
-            </div>
-          
-          
-        </div>
-      
 
+  <div class="container">
+
+    <div class="viewer">
+      <iframe style="position:fixed; width:100%; height:100%; border:0" src="" id="api-frame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms" allow="autoplay; fullscreen; vr" allowfullscreen mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+    </div>
+
+    <div class="panel">
+      <div class="sidebar">
+
+        <p>
+          Haz click en dos puntos para medir la distancia entre ellos.
+        </p>
+
+        <td><b>Distancia: </b> </td>
+              <td class="output" ><output class="distance">-</output> m</td>
+
+
+        <p class="controls" id="controls">
+
+        </p>
+
+      </div>
 
     </div>
 
-    <script type="text/javascript" src="https://labs.sketchfab.com/experiments/measurements/three.js"></script>
-    <script type="text/javascript" src="https://labs.sketchfab.com/experiments/model-picker/SketchfabPicker.js"></script>
-    <script type="text/javascript" src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.0.js"></script>
-    <script src="https://rawcdn.githack.com/sciecode/three.js/f4e363a8e0cf6c496f4191192d7eb15110442a7c/examples/js/TexturePainter.js"></script>
-    <script type="text/javascript">
+  </div>
+
+
+
+  <script type="text/javascript" src="https://labs.sketchfab.com/experiments/measurements/three.js"></script>
+  <script type="text/javascript" src="https://labs.sketchfab.com/experiments/model-picker/SketchfabPicker.js"></script>
+  <script type="text/javascript" src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.0.js"></script>
+  <script type="text/javascript">
+    var currentCamera = {
+      position: [0, 0, 0],
+      target: [0, 0, 0]
+    };
+    const debounce = (callback, wait) => {
+      let timeoutId = null;
+      return (...args) => {
+        window.clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => {
+          callback.apply(null, args);
+        }, wait);
+      };
+    };
+    window.addEventListener('resize', debounce(function() {
+      Overlay.resize();
+    }, 100), true);
+    /**
+     * Viewer
+     ******************************************************************************/
+    var Viewer = {
+      iframe: document.getElementById('api-frame'),
+      client: null,
+      points: [],
+      loadModel: function(model) {
+        Viewer.client = new Sketchfab('1.12.0', Viewer.iframe);
+        Viewer.client.init(model, {
+          success: Viewer.onSuccess,
+          error: Viewer.onError,
+          camera: 0,
+        });
+      },
       
-        var currentCamera = {
-            position: [0, 0, 0],
-            target: [0, 0, 0]
-        };       
-
-        const debounce = (callback, wait) => {
-            let timeoutId = null;
-            return (...args) => {
-                window.clearTimeout(timeoutId);
-                timeoutId = window.setTimeout(() => {
-                    callback.apply(null, args);
-                }, wait);
-            };
-        };
-
-        window.addEventListener('resize', debounce(function() {
-            Overlay.resize();
-        }, 100), true);
-
-        /**
-         * Viewer
-         ******************************************************************************/ 
+      onError: function() {
+        window.console.error('Error: can not load viewer');
+      },
       
-        var Viewer = {
-
-            iframe: document.getElementById('api-frame'),
-            client: null,
-            points: [],
-
-            loadModel: function(urlid) {
-                Viewer.client = new Sketchfab('1.12.0', Viewer.iframe);
-                Viewer.client.init(urlid, {
-                    camera: 0,
-                    success: Viewer.onSuccess,
-                    error: Viewer.onError
-                });
-            },
-
-            onSuccess: function(api) {
-                api.start();
-                api.addEventListener('viewerready', function() {
-
-                    api.setFov(40);
-                    startCameraPolling(api, currentCamera);
-                    api.addEventListener('click', function(e) {
-
-                        if (Viewer.points.length === 2) {
-                            Viewer.points.length = 0;
-                        }
-
-                        Viewer.points.push(e.position3D);
-
-                        if (Viewer.points.length === 1) {
-                            Overlay.setPositionA(Viewer.points[0]);
-                            UI.setPoints(Viewer.points[0], null);
-                        }
-
-                        if (Viewer.points.length === 2) {
-                            Overlay.setPositionB(Viewer.points[1]);
-                            UI.setPoints(Viewer.points[0], Viewer.points[1]);
-                        }
-                    });
-
-                    UI.init();
-                    Overlay.init(currentCamera);
-                });
-              
-                document.getElementById('screenshot').addEventListener('click', function () {
-      api.getScreenShot(4096, 4096, 'image/png', function (err, result) {
-        var anchor = document.createElement('a');
-        anchor.href = result;
-        anchor.download = 'screenshot.png';
-        anchor.innerHTML = '<img width="50" height="50" src=' + result + '>Descarga';
-        document.getElementById('controls').appendChild(anchor);
-      });
-    });
-                api.addEventListener('Hover', function (result) {
-      console.log(result);
-      if (result.instanceID) {
-        // hit
-        console.log(result.material);
-      }
-      api.pickColor({
-        x: result.position2D[0],
-        y: result.position2D[1]
-      }, function (rgba) {
-        console.log(arguments);
-        console.log('rgba(' + rgba[0] + ', ' + rgba[1] + ', ' + rgba[2] + ', ' + rgba[3] + ')');
-      });
-    });
-             },
-            onError: function() {
-                window.console.error('Error: can not load viewer');
+      onSuccess: function(api) {
+        api.start();
+        api.addEventListener('viewerready', function() {
+          api.setFov(40);
+          startCameraPolling(api, currentCamera);
+          api.addEventListener('click', function(e) {
+            if (Viewer.points.length === 2) {
+              Viewer.points.length = 0;
             }
-        };
-
-      
-        /**
-         * UI
-         ******************************************************************************/
-      
-        var UI = {
-            distance: 0,
-            factor: 1,
-            pointA: [0, 0, 0],
-            pointB: [0, 0, 0],
-
-            init: function() {
-
-                UI.distance = 0;
-                UI.pointA = [0, 0, 0];
-                UI.pointB = [0, 0, 0];
-           
-                UI.renderDistance();
-               
-            },
-              
-            setPoints: function(pointA, pointB) {
-                if (pointA)
-                    UI.pointA = pointA;
-                if (pointB)
-                    UI.pointB = pointB;
-
-                UI.distance = distance3d(UI.pointA, UI.pointB);
-                UI.renderDistance();              
-            },
-            renderDistance: function() {
-                var distanceElement = document.querySelector('.distance');
-                distanceElement.innerHTML = UI.distance.toFixed(2);
-            },
-                  
-        };
-      
-      
-      /*BOTON CAPTURA PANTALLA 
-      **********************************************************************/
-      
-        var controls = document.getElementById('controls');
-      var buttonsText = '';
-       buttonsText += '<button id="screenshot">📷 Captura</button>';
-      controls.innerHTML = buttonsText;
-
-        /**
-         * Overlay
-         ******************************************************************************/
-        var Overlay = {
-
-            isInitialized: false,
-            renderer: null,
-            scene: null,
-            camera: null,
-
-            markerA: null,
-            markerB: null,
-
-            currentCamera: null,
-
-            init: function(currentCamera) {
-                var viewer = document.querySelector('.viewer');
-                var iframe = document.querySelector('.viewer iframe');
-                var w = iframe.offsetWidth;
-                var h = iframe.offsetHeight;
-
-                if (!Viewer.isInitialized) {
-                    Overlay.scene = new THREE.Scene();
-                    Overlay.camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 4000);
-                    Overlay.camera.up = new THREE.Vector3(0, 0, 1);
-
-                    Overlay.renderer = new THREE.WebGLRenderer({ alpha: true });
-                    Overlay.renderer.setSize(w, h);
-                    viewer.appendChild(Overlay.renderer.domElement);
-
-                    Viewer.isInitialized = true;
-                }
-
-                Overlay.clearScene();
-                Overlay.initCamera(currentCamera);
-                Overlay.initObjects();
-                Overlay.render();
-            }, /*Esto inicia la escena 3D para poner lineas y circulos*/
-
-            initObjects: function() {
-                var geometryA = new THREE.SphereGeometry(0.005, 8, 8);
-                var materialA = new THREE.MeshBasicMaterial({ color: 0xDB3E00 });
-                Overlay.markerA = new THREE.Mesh(geometryA, materialA);
-                Overlay.markerA.frustumCulled = false;
-                Overlay.scene.add(Overlay.markerA);
-
-                var geometryB = new THREE.SphereGeometry(0.005, 8, 8);
-                var materialB = new THREE.MeshBasicMaterial({ color: 0xABB8C3 });
-                Overlay.markerB = new THREE.Mesh(geometryB, materialB);
-                Overlay.markerB.frustumCulled = false;
-                Overlay.scene.add(Overlay.markerB);
-
-                Overlay.geometryLine = new THREE.Geometry();
-                Overlay.geometryLine.vertices[0] = new THREE.Vector3(0, 0, 0);
-                Overlay.geometryLine.vertices[1] = new THREE.Vector3(0, 0, 0);
-                var materialLine = new THREE.LineBasicMaterial({
-                    color: 0xffffff
-                });
-                var line = new THREE.Line(Overlay.geometryLine, materialLine);
-                line.frustumCulled = false;
-                Overlay.scene.add(line);
-                       
-              
-              
-            }, /*Crea los puntos y linea de medida, selecciona el color*/
-
-            initCamera: function(currentCamera) {
-                Overlay.currentCamera = currentCamera;
-                Overlay.camera.position.set(currentCamera.position[0], currentCamera.position[1], currentCamera.position[2]);
-                Overlay.camera.lookAt(new THREE.Vector3(currentCamera.target[0], currentCamera.target[1], currentCamera.target[2]));
-            },
-
-            clearScene: function() {
-                var obj;
-                for (var i = Overlay.scene.children.length - 1; i >= 0; i--) {
-                    obj = Overlay.scene.children[i];
-                    Overlay.scene.remove(obj);
-                }
-            },
-
-            setPositionA: function(position) {
-                Overlay.markerA.position.x = position[0];
-                Overlay.markerA.position.y = position[1];
-                Overlay.markerA.position.z = position[2];
-
-                Overlay.geometryLine.vertices[0] = new THREE.Vector3(position[0], position[1], position[2]);
-                Overlay.geometryLine.verticesNeedUpdate = true;
-            },
-
-            setPositionB: function(position) {
-                Overlay.markerB.position.x = position[0];
-                Overlay.markerB.position.y = position[1];
-                Overlay.markerB.position.z = position[2];
-
-                Overlay.geometryLine.vertices[1] = new THREE.Vector3(position[0], position[1], position[2]);
-                Overlay.geometryLine.verticesNeedUpdate = true;
-            },
-
-            render: function() {
-                requestAnimationFrame(Overlay.render);
-                Overlay.camera.position.set(Overlay.currentCamera.position[0], Overlay.currentCamera.position[1], Overlay.currentCamera.position[2]);
-                Overlay.camera.lookAt(new THREE.Vector3(Overlay.currentCamera.target[0], Overlay.currentCamera.target[1], Overlay.currentCamera.target[2]));
-
-                var scale = distance3d(Overlay.currentCamera.position, [Overlay.markerA.position.x, Overlay.markerA.position.y, Overlay.markerA.position.z]);
-                Overlay.markerA.scale.x = scale;
-                Overlay.markerA.scale.y = scale;
-                Overlay.markerA.scale.z = scale;
-                Overlay.markerB.scale.x = scale;
-                Overlay.markerB.scale.y = scale;
-                Overlay.markerB.scale.z = scale;
-
-                Overlay.renderer.render(Overlay.scene, Overlay.camera);
-            },
-
-            resize: function() {
-                var iframe = document.querySelector('.viewer iframe');
-                var w = iframe.offsetWidth;
-                var h = iframe.offsetHeight;
-                if (Overlay.camera) {
-                    Overlay.camera.aspect = w / h;
-                    Overlay.camera.updateProjectionMatrix();
-                }
-                if (Overlay.renderer) {
-                    Overlay.renderer.setSize(w, h);
-                }
+            Viewer.points.push(e.position3D);
+            if (Viewer.points.length === 1) {
+              Overlay.setPositionA(Viewer.points[0]);
+              UI.setPoints(Viewer.points[0], null);
             }
-          
-          
-          
-        };
-
-        /**
-         * distance3d
-         * Computes the euclidean distance between 2 3D points
-         * @param {array} a Array of 3D coordinates
-         * @param {array} b Array of 3D coordinates
-         * @return {float} distance
-         */
-      
-        function distance3d(a, b) {
-            return Math.sqrt(
-                Math.pow(a[0] - b[0], 2) +
-                Math.pow(a[1] - b[1], 2) +
-                Math.pow(a[2] - b[2], 2)
-            );
-        }
-
-        /**
-         * startCameraPolling
-         *
-         * @param {object} api
-         * @param {array} currentCamera Array to update with camera position and target.
-         */
-      
-        function startCameraPolling(api, currentCamera) {
-
-            function onCamera(err, camera) {
-                if (camera) {
-                    currentCamera.position[0] = camera.position[0];
-                    currentCamera.position[1] = camera.position[1];
-                    currentCamera.position[2] = camera.position[2];
-                    currentCamera.target[0] = camera.target[0];
-                    currentCamera.target[1] = camera.target[1];
-                    currentCamera.target[2] = camera.target[2];
-                }
-                window.requestAnimationFrame(getCamera);
+            if (Viewer.points.length === 2) {
+              Overlay.setPositionB(Viewer.points[1]);
+              UI.setPoints(Viewer.points[0], Viewer.points[1]);
             }
-
-            function getCamera() {
-                api.getCameraLookAt(onCamera);
-            }
-
-            getCamera();
-        }
-
-        // Page Initialization
-        // Parse the URL query parameters to find the urlid value     
+          });
+          UI.init();
+          Overlay.init(currentCamera);
+        });
+        
+        
+        /*** Script para captura de pantalla 
+        la linea anchor.click(); hace que se descargue automaticamente
+        ***/
+        
+        document.getElementById('screenshot').addEventListener('click', function() {
+          api.getScreenShot(4000, 3000, 'image/png', function(err, result) {
+            var anchor = document.createElement('a');
+            anchor.href = result;
+            anchor.download = 'screenshot.png';            
+            anchor.click();
+          });
+        });       
+      },
       
-             var urlid = '34a6bdad5caf4d649fce0c211becc5e0'
-        if (urlid) {
-            Viewer.loadModel(urlid);
-        }
       
-      
-      
-      
-      
-    </script>
-  
-   <style>
-     
-     html,
-body,
-.app {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-}
-
-/**
- * Layout
- ******************************************************************************/
-.app {
-    box-sizing: border-box;
-    height: calc(100% - 60px);
-    padding: 30px;
-}
-
-.panel {
-    box-sizing: border-box;
-    height: 20%;
-    background: #fff;
-    display: block;
-    border-radius: 3px;
-    font-size: 14px;
-}
-
-.sidebar {
-    flex: 0 450px;
-    padding: 0 20px;
-    color: #555;
-}
-    .sidebar .notes {
-        font-size: 12px;
-        color: #888;
+    };
+    
+    
+    var model = '34a6bdad5caf4d649fce0c211becc5e0' /**Copiar aqui el id del modelo**/
+    if (model) {
+      Viewer.loadModel(model);
     }
 
-/**
+    
+    /**
+     * UI Para medir distancias
+     ******************************************************************************/
+    var UI = {
+      distance: 0,
+      factor: 1,
+      pointA: [0, 0, 0],
+      pointB: [0, 0, 0],
+      init: function() {
+        UI.distance = 0;
+        UI.pointA = [0, 0, 0];
+        UI.pointB = [0, 0, 0];
+        UI.renderDistance();
+      },
+      setPoints: function(pointA, pointB) {
+        if (pointA)
+          UI.pointA = pointA;
+        if (pointB)
+          UI.pointB = pointB;
+        UI.distance = distance3d(UI.pointA, UI.pointB);
+        console.log("Coords. A:", UI.pointA, "Coords. B:", UI.pointB, "Distancia:", UI.distance);
+        UI.renderDistance();
+      },
+      renderDistance: function() {
+        var distanceElement = document.querySelector('.distance');
+        distanceElement.innerHTML = UI.distance.toFixed(2);
+      },
+    };
+    
+    
+    
+    /*BOTON CAPTURA PANTALLA 
+     **********************************************************************/
+    var controls = document.getElementById('controls');
+    var buttonsText = '';
+    buttonsText += '<button id="screenshot">Captura de pantalla</button>';
+    controls.innerHTML = buttonsText;
+    
+    
+    /**
+     * Overlay
+     ******************************************************************************/
+    var Overlay = {
+      isInitialized: false,
+      renderer: null,
+      scene: null,
+      camera: null,
+      markerA: null,
+      markerB: null,
+      currentCamera: null,
+      init: function(currentCamera) {
+        var viewer = document.querySelector('.viewer');
+        var iframe = document.querySelector('.viewer iframe');
+        var w = iframe.offsetWidth;
+        var h = iframe.offsetHeight;
+        if (!Viewer.isInitialized) {
+          Overlay.scene = new THREE.Scene();
+          Overlay.camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 4000);
+          Overlay.camera.up = new THREE.Vector3(0, 0, 1);
+          Overlay.renderer = new THREE.WebGLRenderer({
+            alpha: true
+          });
+          Overlay.renderer.setSize(w, h);
+          viewer.appendChild(Overlay.renderer.domElement);
+          Viewer.isInitialized = true;
+        }
+        Overlay.clearScene();
+        Overlay.initCamera(currentCamera);
+        Overlay.initObjects();
+        Overlay.render();
+      },
+      /*Esto inicia la escena 3D para poner lineas y circulos*/
+      initObjects: function() {
+        var geometryA = new THREE.SphereGeometry(0.005, 8, 8);
+        var materialA = new THREE.MeshBasicMaterial({
+          color: 0xDB3E00
+        });
+        Overlay.markerA = new THREE.Mesh(geometryA, materialA);
+        Overlay.markerA.frustumCulled = false;
+        Overlay.scene.add(Overlay.markerA);
+        var geometryB = new THREE.SphereGeometry(0.005, 8, 8);
+        var materialB = new THREE.MeshBasicMaterial({
+          color: 0xABB8C3
+        });
+        Overlay.markerB = new THREE.Mesh(geometryB, materialB);
+        Overlay.markerB.frustumCulled = false;
+        Overlay.scene.add(Overlay.markerB);
+        Overlay.geometryLine = new THREE.Geometry();
+        Overlay.geometryLine.vertices[0] = new THREE.Vector3(0, 0, 0);
+        Overlay.geometryLine.vertices[1] = new THREE.Vector3(0, 0, 0);
+        var materialLine = new THREE.LineBasicMaterial({
+          color: 0xffffff
+        });
+        var line = new THREE.Line(Overlay.geometryLine, materialLine);
+        line.frustumCulled = false;
+        Overlay.scene.add(line);
+      },
+      /*Crea los puntos y linea de medida, selecciona el color*/
+      initCamera: function(currentCamera) {
+        Overlay.currentCamera = currentCamera;
+        Overlay.camera.position.set(currentCamera.position[0], currentCamera.position[1], currentCamera.position[2]);
+        Overlay.camera.lookAt(new THREE.Vector3(currentCamera.target[0], currentCamera.target[1], currentCamera.target[2]));
+      },
+      clearScene: function() {
+        var obj;
+        for (var i = Overlay.scene.children.length - 1; i >= 0; i--) {
+          obj = Overlay.scene.children[i];
+          Overlay.scene.remove(obj);
+        }
+      },
+      setPositionA: function(position) {
+        Overlay.markerA.position.x = position[0];
+        Overlay.markerA.position.y = position[1];
+        Overlay.markerA.position.z = position[2];
+        Overlay.geometryLine.vertices[0] = new THREE.Vector3(position[0], position[1], position[2]);
+        Overlay.geometryLine.verticesNeedUpdate = true;
+      },
+      setPositionB: function(position) {
+        Overlay.markerB.position.x = position[0];
+        Overlay.markerB.position.y = position[1];
+        Overlay.markerB.position.z = position[2];
+        Overlay.geometryLine.vertices[1] = new THREE.Vector3(position[0], position[1], position[2]);
+        Overlay.geometryLine.verticesNeedUpdate = true;
+      },
+      render: function() {
+        requestAnimationFrame(Overlay.render);
+        Overlay.camera.position.set(Overlay.currentCamera.position[0], Overlay.currentCamera.position[1], Overlay.currentCamera.position[2]);
+        Overlay.camera.lookAt(new THREE.Vector3(Overlay.currentCamera.target[0], Overlay.currentCamera.target[1], Overlay.currentCamera.target[2]));
+        var scale = distance3d(Overlay.currentCamera.position, [Overlay.markerA.position.x, Overlay.markerA.position.y, Overlay.markerA.position.z]);
+        Overlay.markerA.scale.x = scale;
+        Overlay.markerA.scale.y = scale;
+        Overlay.markerA.scale.z = scale;
+        Overlay.markerB.scale.x = scale;
+        Overlay.markerB.scale.y = scale;
+        Overlay.markerB.scale.z = scale;
+        Overlay.renderer.render(Overlay.scene, Overlay.camera);
+      },
+      resize: function() {
+        var iframe = document.querySelector('.viewer iframe');
+        var w = iframe.offsetWidth;
+        var h = iframe.offsetHeight;
+        if (Overlay.camera) {
+          Overlay.camera.aspect = w / h;
+          Overlay.camera.updateProjectionMatrix();
+        }
+        if (Overlay.renderer) {
+          Overlay.renderer.setSize(w, h);
+        }
+      }
+    };
+    
+    
+    /**
+     * distance3d
+     * Computes the euclidean distance between 2 3D points
+     * @param {array} a Array of 3D coordinates
+     * @param {array} b Array of 3D coordinates
+     * @return {float} distance
+     */
+    function distance3d(a, b) {
+      return Math.sqrt(
+        Math.pow(a[0] - b[0], 2) +
+        Math.pow(a[1] - b[1], 2) +
+        Math.pow(a[2] - b[2], 2)
+      );
+      
+    }
+   
+    
+    /**
+     * startCameraPolling
+     *
+     * @param {object} api
+     * @param {array} currentCamera Array to update with camera position and target.
+     */
+    function startCameraPolling(api, currentCamera) {
+      function onCamera(err, camera) {
+        if (camera) {
+          currentCamera.position[0] = camera.position[0];
+          currentCamera.position[1] = camera.position[1];
+          currentCamera.position[2] = camera.position[2];
+          currentCamera.target[0] = camera.target[0];
+          currentCamera.target[1] = camera.target[1];
+          currentCamera.target[2] = camera.target[2];
+        }
+        window.requestAnimationFrame(getCamera);
+      }
+
+      function getCamera() {
+        api.getCameraLookAt(onCamera);
+      }
+      getCamera();
+    }
+   
+  </script>
+
+  <style>
+    type="text/css"
+
+    body {
+      margin: 0;
+    }
+
+    .panel {
+      position: absolute;
+      height: 150px;
+      width:250px;
+      background-color: rgba(255, 255, 255, 0.5);
+      right: 10px;
+      top: 50px;
+      border-radius: 3px;
+    }
+
+    .sidebar {
+      padding: 0 10px;
+      font-size: 14px;
+    }
+    
+    hr.solid {
+       border-top: 3px solid #bbb;
+    }
+
+
+
+    /**
  * Viewer
  ******************************************************************************/
-.viewer {
-    position: relative;
-    flex: 1 1 auto;
-    background: #CCC;
-}
-    .viewer iframe {
-        display: block;
-        width: 100%;
-        height: 100%;
-        border: 0;
-    }
-    .viewer canvas {
-        position: absolute;
-        top: 0;
-        left: 0;
-        pointer-events: none;
+    .viewer {
+      position: relative;
+      flex: 1 1 auto;
+      background: #CCC;
     }
 
-/**
+    .viewer iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .viewer canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+
+    /**
  * Result
  ******************************************************************************/
-.result {
-    width: 20%;
-    font-size: 14px ;
-    border: 1px solid #eee;
-    table-layout: fixed;
-}
-    .result th {
-        text-align: left;
+    .result {
+      width: 100%;
+      font-size: 14px;
+      border: 1px solid #eee;
+      table-layout: fixed;
+     
     }
+
+    .result th {
+      text-align: left;
+    }
+
     .result td,
     .result th {
-        width: 50%;
-        padding: 4px;
-        border: 1px solid #eee;
+      width: 100%;
+      padding: 4px;
+      border: 0px solid #eee;
     }
+
     .result .output {
-        text-align: right;
+      text-align: right;
     }
+
     .result input {
-        width: 4em;
-        text-align: right;
+      width: 4em;
+      text-align: right;
     }
-     
-  
 
-* {
-    box-sizing: border-box;
-}
+    * {
+      box-sizing: border-box;
+    }
 
-.container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-}
+    /***********/
+    
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
 
-.iframe-container {
-    position: relative;
-    width: 100%;
-    flex: 1;
-    display: flex;
-}
+    .iframe-container {
+      position: relative;
+      width: 100%;
+      flex: 1;
+      display: flex;
+    }
 
-.iframe-container > iframe {
-    border: 0;
-    width: 100%;
-    flex: 1;
-}
+    .iframe-container>iframe {
+      border: 0;
+      width: 100%;
+      flex: 1;
+    }
 
+    .controls {
+      flex-shrink: 0;
+      height: 20px;
+      padding: 5px 0 0 0;
+      
+    }
 
-.controls {
+    .controls>* {
+      margin-right: 15px;
+      margin-bottom: 15px;
+    }
 
-    flex-shrink: 0;
-    height:70px;
-    padding: 0 0 0 0;
-    background-color: #fff;
-   
-}
+    button {
+      border-radius: 4px;
+      padding: 0 13px;
+      font-family: "Open Sans", sans-serif;
+      width: 100%;
+      height: 25px;
+      line-height: 21px;
+      /*text-transform: capitalize;*/
+      color: white;
+      opacity: 0.8;
+      border: none;
+      border-radius: 5px;
+      text-align: center;
+      vertical-align: middle;
+      display: block;
+      margin-top: 2px;
+      background: #1caad9;
+      
+    }
 
-.controls > * {
-    margin-right: 15px;
-    margin-bottom: 15px;
-}
+    button.disabled {
+      cursor: default;
+      pointer-events: none;
+      color: #ccc;
+      background-color: #e7e7e7;
+      transition: background-color .25s ease;
+    }
+    
+    button:hover {opacity: 1;}
+    button:active {font-weight: bold;}
 
-button {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-    border: 2px solid transparent;
-    border-radius: 4px;
-    padding: 0 13px;
-    font-family: "Open Sans", sans-serif;
-    font-weight: 600;
-    text-align: center;
-    text-shadow: none;
-    text-transform: uppercase;
-    line-height: 1.2;
-    cursor: pointer;
-    outline: none;
-    transition: background .2s;
-    color: white;
-    background-color: #1caad9;
-    height: 25px;
-    font-size: 12px;
-}
-
-button.disabled {
-    cursor: default;
-    pointer-events: none;
-    color: #ccc;
-    background-color: #e7e7e7;
-    transition: background-color .25s ease;
-}
-
-.description {
-    box-sizing: border-box;
-    position: absolute;
-    padding: 30px;
-    top: 30px;
-    right: 30px;
-    width: 240px;
-    background: rgba(0, 0, 0, 0.6);
-    color: #ffffff;
-    border-radius: 3px;
-    z-index: 2;
-
-    opacity: 0;
-    pointer-events: none;
-}
-
-.description.--active {
-    opacity: 1;
-    pointer-events: all;
-}
-
-.description iframe,
-.description img {
-    max-width: 100%;
-    height: auto;
-}
   </style>
 </body>
 
 </html>
-  
+
 </body>
+
 </html>
